@@ -1,0 +1,271 @@
+!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Mini Gioco - Caccia Stelle</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; background: black; color: #fff; }
+    #game-wrap { position: fixed; inset: 0; width: 100vw; height: 100vh; border: 0; border-radius: 0; background: radial-gradient(circle at 20% 20%, #1a3e80, #05112a 70%); overflow: hidden; z-index: 999; }
+    #hud { padding: 10px; display: flex; justify-content: space-between; font-size: 1rem; }
+    #field { position: relative; width: 100%; height: calc(100% - 44px); background: radial-gradient(circle at 30% 10%, #192e60, #02081c 80%); overflow: hidden; }
+    .star, .player, .asteroid { position: absolute; border-radius: 50%; }
+    .player { width: 44px; height: 44px; background: linear-gradient(135deg, #58d6ff, #2f9fd8); border: 2px solid #c4f2ff; box-shadow: 0 0 18px rgba(92, 230, 255, .7); }
+    .star { width: 14px; height: 14px; background: #ffe16f; box-shadow: 0 0 10px rgba(255, 225, 110, .7); }
+    .asteroid { width: 24px; height: 24px; background: #7f7f7f; box-shadow: inset 0 0 8px #3e3e3e; }
+    #controls { display: flex; justify-content: center; gap: 8px; margin-top: 8px; }
+    .btn { padding: 10px 12px; font-size: 0.85rem; background: rgba(20,70,130,.8); border: 1px solid #7ec0ff; color:#fff; border-radius: 8px; touch-action: manipulation; }
+    .btn:active { transform: scale(.95); }
+    @media (max-width: 600px) {
+      #hud { font-size: .9rem; }
+      .player { width: 36px; height: 36px; }
+      .asteroid { width: 20px; height: 20px; }
+    }
+    #overlay { position: absolute; inset: 0; background: rgba(0,0,0,.6); display:none; align-items: center; justify-content: center; color:#fff; text-align:center; padding:18px; }
+    #overlay button { margin-top: 12px; }
+    #leaderboard { position: absolute; top: 16px; right: 16px; width: 210px; background: rgba(5, 20, 50, 0.85); border: 1px solid #7ec0ff; border-radius: 10px; padding: 12px; color: #fff; z-index: 1001; font-size: .85rem; }
+    #leaderboard h3 { margin: 0 0 8px; font-size: 1rem; text-align: center; }
+    #leaderboard ol { margin: 0; padding-left: 18px; max-height: 220px; overflow-y: auto; }
+    #leaderboard li { margin: 4px 0; }
+    #leaderboard button { width: 100%; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div id="game-wrap">
+    <div id="hud">
+      <span>Punteggio: <strong id="score">0</strong></span>
+      <span>Vite: <strong id="life">3</strong></span>
+      <span>Livello: <strong id="level">1</strong></span>
+    </div>
+    <div id="field"></div>
+    <div id="controls" aria-label="Controlli touch">
+      <button class="btn" data-dir="left">◀</button>
+      <button class="btn" data-dir="up">▲</button>
+      <button class="btn" data-dir="down">▼</button>
+      <button class="btn" data-dir="right">▶</button>
+    </div>
+    <div id="overlay"><div><h2>Gioco finito</h2><p id="message">Hai raccolto tutte le stelle!</p><button id="restart" class="btn">Ricomincia</button></div></div>
+    <div id="leaderboard">
+      <h3>Leaderboard</h3>
+      <ol id="leaderboard-list"></ol>
+      <button id="reset-leaderboard" class="btn">Reset</button>
+    </div>
+  </div>
+
+  <script>
+    const field = document.getElementById('field');
+    const scoreEl = document.getElementById('score');
+    const lifeEl = document.getElementById('life');
+    const levelEl = document.getElementById('level');
+    const overlay = document.getElementById('overlay');
+    const message = document.getElementById('message');
+    const restart = document.getElementById('restart');
+    const leaderboardList = document.getElementById('leaderboard-list');
+    const resetLeaderboard = document.getElementById('reset-leaderboard');
+
+    const LEVEL_MAX = 3000000000;
+    let width, height;
+    let player, stars = [], asteroids = [];
+    let score = 0, life = 3, level = 0;
+    let playerName = null;
+    const speedPlayer = 6;
+    let keys = {};
+
+    function askPlayerName(){
+      let name = prompt('Inserisci il tuo nome per la leaderboard', 'Giocatore');
+      if (name && name.trim()) playerName = name.trim();
+      else playerName = 'Giocatore';
+    }
+
+    function resize() {
+      width = field.clientWidth;
+      height = field.clientHeight;
+      if (player) {
+        setPosition(player, Math.min(player.x, width - player.offsetWidth), Math.min(player.y, height - player.offsetHeight));
+      }
+    }
+
+    function setPosition(el, x, y) {
+      el.x = x; el.y = y;
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+    }
+
+    function createPlayer() {
+      player = document.createElement('div');
+      player.className = 'player';
+      field.appendChild(player);
+      setPosition(player, width/2 - 22, height - 70);
+    }
+
+    function spawnStars(count) {
+      const starsCount = Math.min(100, 6 + Math.floor(level * 0.02));
+      for (let i = 0; i < starsCount; i++) {
+        let s = document.createElement('div');
+        s.className = 'star';
+        field.appendChild(s);
+        const x = Math.random() * (width - 18);
+        const y = Math.random() * (height / 2);
+        setPosition(s, x, y);
+        stars.push(s);
+      }
+    }
+
+    function spawnAsteroids(count) {
+      const asteroidsCount = Math.min(200, 3 + level); // +1 asteroide per livello
+      for (let i = 0; i < asteroidsCount; i++) {
+        let a = document.createElement('div');
+        a.className = 'asteroid';
+        field.appendChild(a);
+        const x = Math.random() * (width - 28);
+        const y = -Math.random() * 230 - 40;
+        setPosition(a, x, y);
+        a.speed = 1 + Math.random() * 1.6 + level * 0.00005;
+        asteroids.push(a);
+      }
+    }
+
+    function hitTest(a,b){
+      const ra=a.getBoundingClientRect(), rb=b.getBoundingClientRect();
+      return !(ra.right<rb.left||ra.left>rb.right||ra.bottom<rb.top||ra.top>rb.bottom);
+    }
+
+    function updateHUD(){ scoreEl.textContent=score; lifeEl.textContent=life; levelEl.textContent=level; }
+
+    function getLeaderboard(){
+      const stored = localStorage.getItem('spacewarriorsLeaderboard');
+      return stored ? JSON.parse(stored) : [];
+    }
+
+    function setLeaderboard(list){
+      localStorage.setItem('spacewarriorsLeaderboard', JSON.stringify(list));
+    }
+
+    function renderLeaderboard(){
+      const list = getLeaderboard();
+      leaderboardList.innerHTML = '';
+      if(!list.length){ leaderboardList.innerHTML = '<li>Nessun punteggio</li>'; return; }
+      list.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = `${item.name || 'Giocatore'}: ${item.score} punti (Lv ${item.level})`;
+        leaderboardList.appendChild(li);
+      });
+    }
+
+    function saveScore(){
+      const name = playerName || 'Giocatore';
+      const list = getLeaderboard();
+      list.push({name, score, level});
+      list.sort((a,b)=>b.score-a.score);
+      setLeaderboard(list.slice(0, 10));
+      renderLeaderboard();
+    }
+
+    resetLeaderboard.addEventListener('click', () => {
+      localStorage.removeItem('spacewarriorsLeaderboard');
+      renderLeaderboard();
+    });
+
+    function nextLevel(){
+      if (level >= LEVEL_MAX) { winGame(); return; }
+      level++;
+      updateHUD();
+      clearField();
+      initGame(false);
+    }
+
+    function clearField() {
+      stars.forEach(v=>v.remove()); asteroids.forEach(v=>v.remove());
+      stars=[]; asteroids=[];
+    }
+
+    function gameOver() {
+      overlay.style.display='flex';
+      message.textContent = 'Hai perso! Punteggio: ' + score;
+      saveScore();
+      cancelAnimationFrame(animId);
+    }
+
+    function winGame() {
+      overlay.style.display='flex';
+      message.textContent = 'Hai vinto! Punteggio: ' + score;
+      saveScore();
+      cancelAnimationFrame(animId);
+    }
+
+    let animId;
+    function gameLoop() {
+      if (!player) return;
+      const px = player.x + ((keys['ArrowRight']||keys['right']) ? speedPlayer : (keys['ArrowLeft']||keys['left']) ? -speedPlayer : 0);
+      const py = player.y + ((keys['ArrowDown']||keys['down']) ? speedPlayer : (keys['ArrowUp']||keys['up']) ? -speedPlayer : 0);
+      setPosition(player, Math.max(0, Math.min(width-player.offsetWidth, px)), Math.max(0, Math.min(height-player.offsetHeight, py)));
+
+      asteroids.forEach(a => {
+        setPosition(a, a.x, a.y + a.speed);
+        if (a.y > height) {
+          setPosition(a, Math.random() * (width - 28), -Math.random() * 180 - 30);
+          a.speed = 1 + Math.random() * 1.6 + level * .2;
+        }
+        if (hitTest(player, a)) {
+          life--; updateHUD();
+          setPosition(a, Math.random() * (width - 28), -Math.random() * 180 - 30);
+          if (life <= 0) { gameOver(); return; }
+        }
+      });
+
+      stars.forEach((s, idx) => {
+        if (hitTest(player, s)) {
+          s.remove(); stars.splice(idx,1);
+          score += 10;
+          updateHUD();
+        }
+      });
+
+      if (life <= 0) return;
+      if (!stars.length) {
+        if (level >= LEVEL_MAX) { winGame(); return; }
+        setTimeout(nextLevel, 400);
+      } else {
+        animId = requestAnimationFrame(gameLoop);
+      }
+    }
+
+    function initGame(newRound=true){
+      if (newRound){
+        score=0;life=3;level=0;
+        if (!playerName) askPlayerName();
+      }
+      updateHUD();
+      field.innerHTML='';
+      stars=[];asteroids=[];
+      createPlayer();
+      spawnStars();
+      spawnAsteroids();
+      overlay.style.display='none';
+      resize();
+      cancelAnimationFrame(animId);
+      animId = requestAnimationFrame(gameLoop);
+    }
+
+    window.addEventListener('resize', resize);
+
+    document.addEventListener('keydown', e => { keys[e.key]=true; });
+    document.addEventListener('keyup', e => { keys[e.key]=false; });
+
+    document.querySelectorAll('.btn').forEach(btn => {
+      btn.addEventListener('touchstart', e => { const d=btn.dataset.dir; keys[d]=true; e.preventDefault(); });
+      btn.addEventListener('touchend', e => { const d=btn.dataset.dir; keys[d]=false; e.preventDefault(); });
+      btn.addEventListener('mousedown', () => { const d=btn.dataset.dir; keys[d]=true; });
+      btn.addEventListener('mouseup', () => { const d=btn.dataset.dir; keys[d]=false; });
+      btn.addEventListener('mouseleave', () => { const d=btn.dataset.dir; keys[d]=false; });
+    });
+
+    restart.addEventListener('click', () => initGame(true));
+
+    renderLeaderboard();
+    initGame(true);
+  </script>
+</body>
+</html>
