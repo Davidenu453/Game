@@ -37,12 +37,13 @@
   </style>
 </head>
 <body>
-  <div class="mobile-notice"><b>Gioco mobile pronto</b>: puoi giocare dal telefono e il gioco si vede benissimo sul display.</div>
+
   <div id="game-wrap">
     <div id="hud">
       <span>Punteggio: <strong id="score">0</strong></span>
       <span>Vite: <strong id="life">3</strong></span>
       <span>Livello: <strong id="level">1</strong></span>
+      <button id="toggle-leaderboard" class="btn">Leaderboard</button>
     </div>
     <div id="field"></div>
     <div id="controls" aria-label="Controlli touch">
@@ -56,6 +57,7 @@
       <h3>Leaderboard</h3>
       <ol id="leaderboard-list"></ol>
       <button id="reset-leaderboard" class="btn">Reset</button>
+      <button id="close-leaderboard" class="btn">Chiudi</button>
     </div>
   </div>
 
@@ -74,7 +76,7 @@
     let width, height;
     let player, stars = [], asteroids = [];
     let score = 0, life = 3, level = 0;
-    let playerName = null;
+    let playerName = localStorage.getItem('playerName') || null;
     const speedPlayer = 6;
     let keys = {};
 
@@ -82,6 +84,7 @@
       let name = prompt('Inserisci il tuo nome per la leaderboard', 'Giocatore');
       if (name && name.trim()) playerName = name.trim();
       else playerName = 'Giocatore';
+      localStorage.setItem('playerName', playerName);
     }
 
     function resize() {
@@ -260,14 +263,26 @@
     document.addEventListener('keyup', e => { keys[e.key]=false; });
 
     document.querySelectorAll('.btn').forEach(btn => {
-      btn.addEventListener('touchstart', e => { const d=btn.dataset.dir; keys[d]=true; e.preventDefault(); });
-      btn.addEventListener('touchend', e => { const d=btn.dataset.dir; keys[d]=false; e.preventDefault(); });
+      btn.addEventListener('touchstart', e => { const d=btn.dataset.dir; if (d) { keys[d]=true; e.preventDefault(); } });
+      btn.addEventListener('touchend', e => { const d=btn.dataset.dir; if (d) { keys[d]=false; e.preventDefault(); } });
       btn.addEventListener('mousedown', () => { const d=btn.dataset.dir; keys[d]=true; });
       btn.addEventListener('mouseup', () => { const d=btn.dataset.dir; keys[d]=false; });
       btn.addEventListener('mouseleave', () => { const d=btn.dataset.dir; keys[d]=false; });
     });
 
     restart.addEventListener('click', () => initGame(true));
+
+    const toggleLeaderboard = document.getElementById('toggle-leaderboard');
+    const closeLeaderboard = document.getElementById('close-leaderboard');
+    const leaderboard = document.getElementById('leaderboard');
+
+    toggleLeaderboard.addEventListener('click', () => {
+      leaderboard.style.display = leaderboard.style.display === 'none' ? 'block' : 'none';
+    });
+
+    closeLeaderboard.addEventListener('click', () => {
+      leaderboard.style.display = 'none';
+    });
 
     renderLeaderboard();
     initGame(true);
