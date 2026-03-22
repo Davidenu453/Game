@@ -1,1 +1,329 @@
-<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"><title>Mini Gioco - Caccia Stelle</title><style>*{box-sizing:border-box;margin:0;padding:0}html,body{width:100%;height:100%;overflow:hidden}body{font-family:Arial,sans-serif;display:flex;justify-content:center;align-items:center;background:#000;color:#fff}#game-wrap{position:fixed;inset:0;width:100vw;height:100vh;border:0;border-radius:0;background:radial-gradient(circle at 20% 20%,#1a3e80,#05112a 70%);overflow:hidden;z-index:999}#hud{padding:10px;display:flex;justify-content:space-between;font-size:1rem}#field{position:relative;width:100%;height:calc(100% - 44px);background:radial-gradient(circle at 30% 10%,#192e60,#02081c 80%);overflow:hidden}.star,.player,.asteroid{position:absolute;border-radius:50%}.player{width:44px;height:44px;background:linear-gradient(135deg,#58d6ff,#2f9fd8);border:2px solid #c4f2ff;box-shadow:0 0 18px rgba(92,230,255,.7)}.star{width:14px;height:14px;background:#ffe16f;box-shadow:0 0 10px rgba(255,225,110,.7)}.asteroid{width:24px;height:24px;background:#7f7f7f;box-shadow:inset 0 0 8px #3e3e3e}#controls{display:none;justify-content:center;gap:8px;margin-top:8px}.btn{padding:10px 12px;font-size:.85rem;background:rgba(20,70,130,.8);border:1px solid #7ec0ff;color:#fff;border-radius:8px;touch-action:manipulation}.btn:active{transform:scale(.95)}@media(max-width:600px){#hud{font-size:.9rem}.player{width:36px;height:36px}.asteroid{width:20px;height:20px}#controls{display:flex;position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.45);border-radius:12px;padding:6px;z-index:1002}#controls .btn{min-width:44px;min-height:44px;font-size:1.1rem}}#overlay{position:absolute;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;color:#fff;text-align:center;padding:18px}#overlay button{margin-top:12px}#leaderboard{position:absolute;top:16px;right:16px;width:210px;background:rgba(5,20,50,.85);border:1px solid #7ec0ff;border-radius:10px;padding:12px;color:#fff;z-index:100;display:none}#leaderboard h3{margin:0 0 8px;font-size:1rem;text-align:center}#leaderboard ol{margin:0;padding-left:18px;max-height:220px;overflow-y:auto}#leaderboard li{margin:4px 0}#leaderboard button{width:100%;margin-top:8px}.mobile-notice{position:fixed;top:0;left:0;width:100%;padding:10px 12px;background:rgba(0,0,0,.8);color:#a5e8ff;font-size:.95rem;text-align:center;z-index:1002}.mobile-notice b{color:#fff}</style></head><body><div id="game-wrap"><div id="hud"><span>Punteggio: <strong id="score">0</strong></span><span>Vite: <strong id="life">3</strong></span><span>Livello: <strong id="level">1</strong></span><button id="toggle-leaderboard" class="btn">Leaderboard</button></div><div id="field"></div><div id="controls" aria-label="Controlli touch"><button class="btn" data-dir="left">◀</button><button class="btn" data-dir="up">▲</button><button class="btn" data-dir="down">▼</button><button class="btn" data-dir="right">▶</button></div><div id="overlay"><div><h2>Gioco finito</h2><p id="message">Hai raccolto tutte le stelle!</p><button id="restart" class="btn">Ricomincia</button></div></div><div id="leaderboard"><h3>Leaderboard</h3><ol id="leaderboard-list"></ol><button id="reset-leaderboard" class="btn">Reset</button><button id="close-leaderboard" class="btn">Chiudi</button></div></div><script>const a=document.getElementById('field'),b=document.getElementById('score'),c=document.getElementById('life'),d=document.getElementById('level'),e=document.getElementById('overlay'),f=document.getElementById('message'),g=document.getElementById('restart'),h=document.getElementById('leaderboard-list'),i=document.getElementById('reset-leaderboard');const j=3000000000;let k,l;let m,n=[],o=[];let p=0,q=3,r=0;let s=localStorage.getItem('playerName')||null;const t=6;let u={};function v(){let w=prompt('Inserisci il tuo nome per la leaderboard','Giocatore');if(w&&w.trim())s=w.trim();else s='Giocatore';localStorage.setItem('playerName',s)}function x(){k=a.clientWidth;l=a.clientHeight;if(m){y(m,Math.min(m.x,k-m.offsetWidth),Math.min(m.y,l-m.offsetHeight))}}function y(z,A,B){z.x=A;z.y=B;z.style.left=A+'px';z.style.top=B+'px'}function C(){m=document.createElement('div');m.className='player';a.appendChild(m);y(m,k/2-22,l-70)}function D(){const E=Math.min(100,6+Math.floor(r*0.02));for(let F=0;F<E;F++){let G=document.createElement('div');G.className='star';a.appendChild(G);const H=Math.random()*(k-18);const I=Math.random()*(l/2);y(G,H,I);n.push(G)}}function J(){const K=Math.min(200,3+r);for(let L=0;L<K;L++){let M=document.createElement('div');M.className='asteroid';a.appendChild(M);const N=Math.random()*(k-28);const O=-Math.random()*230-40;y(M,N,O);M.speed=1+Math.random()*1.6+r*0.00005;o.push(M)}}function P(Q,R){const S=Q.getBoundingClientRect(),T=R.getBoundingClientRect();return!(S.right<T.left||S.left>T.right||S.bottom<T.top||S.top>T.bottom)}function U(){b.textContent=p;c.textContent=q;d.textContent=r}function V(){const W=localStorage.getItem('spacewarriorsLeaderboard');return W?JSON.parse(W):[]}function X(Y){localStorage.setItem('spacewarriorsLeaderboard',JSON.stringify(Y))}function Z(){const AA=V();h.innerHTML='';if(!AA.length){h.innerHTML='<li>Nessun punteggio</li>';return}AA.forEach(BA=>{const CA=document.createElement('li');CA.textContent=`${BA.name||'Giocatore'}: ${BA.score} punti (Lv ${BA.level})`;h.appendChild(CA)})}function DA(){const EA=s||'Giocatore';const FA=V();FA.push({name:EA,score:p,level:r});FA.sort((a,b)=>b.score-a.score);X(FA.slice(0,10));Z()}i.addEventListener('click',()=>{localStorage.removeItem('spacewarriorsLeaderboard');Z()});function GA(){if(r>=j){HA();return}r++;U();IA();JA(false)}function IA(){n.forEach(v=>v.remove());o.forEach(v=>v.remove());n=[];o=[]}function JA(){e.style.display='flex';f.textContent='Hai perso! Punteggio: '+p;DA();cancelAnimationFrame(KA)}function HA(){e.style.display='flex';f.textContent='Hai vinto! Punteggio: '+p;DA();cancelAnimationFrame(KA)}let KA;function LA(){if(!m)return;const MA=m.x+((u['ArrowRight']||u['right'])?t:(u['ArrowLeft']||u['left'])?-t:0);const NA=m.y+((u['ArrowDown']||u['down'])?t:(u['ArrowUp']||u['up'])?-t:0);y(m,Math.max(0,Math.min(k-m.offsetWidth,MA)),Math.max(0,Math.min(l-m.offsetHeight,NA)));o.forEach(OA=>{y(OA,OA.x,OA.y+OA.speed);if(OA.y>l){y(OA,Math.random()*(k-28),-Math.random()*180-30);OA.speed=1+Math.random()*1.6+r*.2}if(P(m,OA)){q--;U();y(OA,Math.random()*(k-28),-Math.random()*180-30);if(q<=0){JA();return}}});n.forEach((PA,QA)=>{if(P(m,PA)){PA.remove();n.splice(QA,1);p+=10;U()}});if(q<=0)return;if(!n.length){if(r>=j){HA();return}setTimeout(GA,400)}else{KA=requestAnimationFrame(LA)}}function RA(SA=true){if(SA){p=0;q=3;r=0;if(!s)v()}U();a.innerHTML='';n=[];o=[];C();D();J();e.style.display='none';x();cancelAnimationFrame(KA);KA=requestAnimationFrame(LA)}window.addEventListener('resize',x);document.addEventListener('keydown',TA=>{u[TA.key]=true});document.addEventListener('keyup',TA=>{u[TA.key]=false});document.querySelectorAll('.btn').forEach(UA=>{UA.addEventListener('touchstart',VA=>{const WA=UA.dataset.dir;if(WA){u[WA]=true;VA.preventDefault()}});UA.addEventListener('touchend',VA=>{const WA=UA.dataset.dir;if(WA){u[WA]=false;VA.preventDefault()}});UA.addEventListener('mousedown',()=>{const WA=UA.dataset.dir;u[WA]=true});UA.addEventListener('mouseup',()=>{const WA=UA.dataset.dir;u[WA]=false});UA.addEventListener('mouseleave',()=>{const WA=UA.dataset.dir;u[WA]=false})});g.addEventListener('click',()=>RA(true));const XA=document.getElementById('toggle-leaderboard');const YA=document.getElementById('close-leaderboard');const ZA=document.getElementById('leaderboard');XA.addEventListener('click',()=>{ZA.style.display=ZA.style.display==='none'?'block':'none'});YA.addEventListener('click',()=>{ZA.style.display='none'});Z();RA(true);</script></body></html>
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Nuovo Gioco - Raccolta Gemme</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; background: linear-gradient(45deg, #667eea 0%, #764ba2 100%); color: #fff; }
+    #game-wrap { position: fixed; inset: 0; width: 100vw; height: 100vh; background: #1a1a2e; overflow: hidden; z-index: 999; }
+    #hud { padding: 10px; display: flex; justify-content: space-between; font-size: 1rem; background: rgba(0,0,0,0.5); }
+    #field { position: relative; width: 100%; height: calc(100% - 44px); overflow: hidden; }
+    .player, .gem, .enemy { position: absolute; border-radius: 50%; }
+    .player { width: 40px; height: 40px; background: #ff6b6b; border: 2px solid #fff; }
+    .gem { width: 20px; height: 20px; background: #ffd93d; box-shadow: 0 0 10px #ffd93d; }
+    .enemy { width: 30px; height: 30px; background: #ff4757; box-shadow: 0 0 10px #ff4757; }
+    #controls { display: none; justify-content: center; gap: 8px; margin-top: 8px; }
+    .btn { padding: 10px 12px; font-size: 0.85rem; background: rgba(255,255,255,0.2); border: 1px solid #fff; color: #fff; border-radius: 8px; touch-action: manipulation; }
+    .btn:active { transform: scale(0.95); }
+    @media (max-width: 600px) {
+      #hud { font-size: 0.9rem; }
+      .player { width: 35px; height: 35px; }
+      .gem { width: 18px; height: 18px; }
+      .enemy { width: 25px; height: 25px; }
+      #controls { display: flex; position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.5); border-radius: 12px; padding: 6px; z-index: 1002; }
+      #controls .btn { min-width: 44px; min-height: 44px; font-size: 1.1rem; }
+    }
+    #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; color: #fff; text-align: center; padding: 18px; z-index: 1003; }
+    #overlay button { margin-top: 12px; }
+    #leaderboard { position: absolute; top: 16px; right: 16px; width: 250px; background: rgba(0,0,0,0.8); border: 1px solid #fff; border-radius: 10px; padding: 12px; color: #fff; z-index: 1001; font-size: 0.85rem; display: none; }
+    #leaderboard h3 { margin: 0 0 8px; font-size: 1rem; text-align: center; }
+    #leaderboard ol { margin: 0; padding-left: 18px; max-height: 200px; overflow-y: auto; }
+    #leaderboard li { margin: 4px 0; }
+    #leaderboard button { width: 100%; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div id="game-wrap">
+    <div id="hud">
+      <span>Punteggio: <strong id="score">0</strong></span>
+      <span>Vite: <strong id="life">3</strong></span>
+      <span>Livello: <strong id="level">1</strong></span>
+      <button id="toggle-leaderboard" class="btn">Leaderboard</button>
+    </div>
+    <div id="field"></div>
+    <div id="controls">
+      <button class="btn" data-dir="left">◀</button>
+      <button class="btn" data-dir="up">▲</button>
+      <button class="btn" data-dir="down">▼</button>
+      <button class="btn" data-dir="right">▶</button>
+    </div>
+    <div id="overlay">
+      <div>
+        <h2>Gioco finito</h2>
+        <p id="message">Hai perso!</p>
+        <button id="restart" class="btn">Ricomincia</button>
+      </div>
+    </div>
+    <div id="leaderboard">
+      <h3>Leaderboard</h3>
+      <ol id="leaderboard-list"></ol>
+      <button id="reset-leaderboard" class="btn">Reset Leaderboard</button>
+      <button id="add-enemies" class="btn">Aggiungi Nemici</button>
+      <button id="add-gems" class="btn">Aggiungi Gemme</button>
+      <button id="close-leaderboard" class="btn">Chiudi</button>
+    </div>
+  </div>
+
+  <script>
+    const field = document.getElementById('field');
+    const scoreEl = document.getElementById('score');
+    const lifeEl = document.getElementById('life');
+    const levelEl = document.getElementById('level');
+    const overlay = document.getElementById('overlay');
+    const message = document.getElementById('message');
+    const restart = document.getElementById('restart');
+    const leaderboardList = document.getElementById('leaderboard-list');
+    const toggleLeaderboard = document.getElementById('toggle-leaderboard');
+    const closeLeaderboard = document.getElementById('close-leaderboard');
+    const resetLeaderboard = document.getElementById('reset-leaderboard');
+    const addEnemies = document.getElementById('add-enemies');
+    const addGems = document.getElementById('add-gems');
+    const leaderboard = document.getElementById('leaderboard');
+
+    let width, height;
+    let player, gems = [], enemies = [];
+    let score = 0, life = 3, level = 1;
+    let keys = {};
+    const speed = 5;
+
+    function resize() {
+      width = field.clientWidth || window.innerWidth || 800;
+      height = field.clientHeight || window.innerHeight - 44 || 600;
+    }
+
+    function setPosition(el, x, y) {
+      el.x = Math.max(0, Math.min(width - el.offsetWidth, x));
+      el.y = Math.max(0, Math.min(height - el.offsetHeight, y));
+      el.style.left = el.x + 'px';
+      el.style.top = el.y + 'px';
+    }
+
+    function createPlayer() {
+      player = document.createElement('div');
+      player.className = 'player';
+      field.appendChild(player);
+      setPosition(player, width / 2 - 20, height - 60);
+    }
+
+    function spawnGems() {
+      for (let i = 0; i < 5; i++) {
+        let g = document.createElement('div');
+        g.className = 'gem';
+        field.appendChild(g);
+        setPosition(g, Math.random() * (width - 20) || 0, Math.random() * (height / 2));
+        gems.push(g);
+      }
+    }
+
+    function spawnEnemies() {
+      const numEnemies = 3 + Math.floor(level / 2);
+      for (let i = 0; i < numEnemies; i++) {
+        let e = document.createElement('div');
+        e.className = 'enemy';
+        field.appendChild(e);
+        setPosition(e, Math.random() * (width - 30) || 0, -Math.random() * 100 - 50);
+        e.speed = 2 + Math.random() * 2 + (level - 1) * 0.5;
+        enemies.push(e);
+      }
+    }
+
+    function hitTest(a, b) {
+      const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+      return !(ra.right < rb.left || ra.left > rb.right || ra.bottom < rb.top || ra.top > rb.bottom);
+    }
+
+    function updateHUD() {
+      scoreEl.textContent = score;
+      lifeEl.textContent = life;
+      levelEl.textContent = level;
+    }
+
+    function getLeaderboard() {
+      try {
+        const stored = localStorage.getItem('gemGameLeaderboard');
+        return stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        console.error('Errore caricamento leaderboard:', e);
+        return [];
+      }
+    }
+
+    function setLeaderboard(list) {
+      try {
+        localStorage.setItem('gemGameLeaderboard', JSON.stringify(list));
+      } catch (e) {
+        console.error('Errore salvataggio leaderboard:', e);
+      }
+    }
+
+    function renderLeaderboard() {
+      const list = getLeaderboard();
+      leaderboardList.innerHTML = '';
+      if (!list.length) {
+        leaderboardList.innerHTML = '<li>Nessun punteggio</li>';
+        return;
+      }
+      list.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = `${item.name}: ${item.score} punti`;
+        leaderboardList.appendChild(li);
+      });
+    }
+
+    function saveScore() {
+      const name = 'Giocatore';
+      const list = getLeaderboard();
+      list.push({ name, score });
+      list.sort((a, b) => b.score - a.score);
+      setLeaderboard(list.slice(0, 10));
+      renderLeaderboard();
+    }
+
+    function gameOver() {
+      overlay.style.display = 'flex';
+      message.textContent = 'Hai perso! Punteggio: ' + score;
+      saveScore();
+      leaderboard.style.display = 'block';
+      cancelAnimationFrame(animId);
+    }
+
+    let animId;
+    function gameLoop() {
+      if (!width || !height) resize();
+      if (!player) return;
+
+      const px = player.x + ((keys['ArrowRight'] || keys['right']) ? speed : (keys['ArrowLeft'] || keys['left']) ? -speed : 0);
+      const py = player.y + ((keys['ArrowDown'] || keys['down']) ? speed : (keys['ArrowUp'] || keys['up']) ? -speed : 0);
+      setPosition(player, px, py);
+
+      enemies.forEach((e, idx) => {
+        setPosition(e, e.x, e.y + e.speed);
+        if (e.y + e.offsetHeight >= height) {
+          e.remove();
+          enemies.splice(idx, 1);
+          let ne = document.createElement('div');
+          ne.className = 'enemy';
+          field.appendChild(ne);
+          setPosition(ne, Math.random() * (width - 30) || 0, -50);
+          ne.speed = 2 + Math.random() * 2;
+          enemies.push(ne);
+        }
+        if (hitTest(player, e)) {
+          life--;
+          updateHUD();
+          e.remove();
+          enemies.splice(idx, 1);
+          let ne = document.createElement('div');
+          ne.className = 'enemy';
+          field.appendChild(ne);
+          setPosition(ne, Math.random() * (width - 30) || 0, -50);
+          ne.speed = 2 + Math.random() * 2;
+          enemies.push(ne);
+          if (life <= 0) {
+            gameOver();
+            return;
+          }
+        }
+      });
+
+      gems.forEach((g, idx) => {
+        if (hitTest(player, g)) {
+          g.remove();
+          gems.splice(idx, 1);
+          score += 10;
+          updateHUD();
+        }
+      });
+
+      if (life <= 0) return;
+      if (!gems.length) {
+        level++;
+        updateHUD();
+        spawnGems();
+      }
+
+      animId = requestAnimationFrame(gameLoop);
+    }
+
+    function initGame() {
+      score = 0;
+      life = 3;
+      level = 1;
+      updateHUD();
+      field.innerHTML = '';
+      gems = [];
+      enemies = [];
+      createPlayer();
+      spawnGems();
+      spawnEnemies();
+      overlay.style.display = 'none';
+      resize();
+      cancelAnimationFrame(animId);
+      animId = requestAnimationFrame(gameLoop);
+    }
+
+    window.addEventListener('resize', resize);
+
+    document.addEventListener('keydown', e => { keys[e.key] = true; });
+    document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+    document.querySelectorAll('.btn').forEach(btn => {
+      btn.addEventListener('touchstart', e => {
+        const d = btn.dataset.dir;
+        if (d) {
+          keys[d] = true;
+          e.preventDefault();
+        }
+      });
+      btn.addEventListener('touchend', e => {
+        const d = btn.dataset.dir;
+        if (d) {
+          keys[d] = false;
+          e.preventDefault();
+        }
+      });
+      btn.addEventListener('mousedown', () => {
+        const d = btn.dataset.dir;
+        keys[d] = true;
+      });
+      btn.addEventListener('mouseup', () => {
+        const d = btn.dataset.dir;
+        keys[d] = false;
+      });
+      btn.addEventListener('mouseleave', () => {
+        const d = btn.dataset.dir;
+        keys[d] = false;
+      });
+    });
+
+    restart.addEventListener('click', initGame);
+
+    toggleLeaderboard.addEventListener('click', () => {
+      leaderboard.style.display = leaderboard.style.display === 'none' ? 'block' : 'none';
+    });
+
+    closeLeaderboard.addEventListener('click', () => {
+      leaderboard.style.display = 'none';
+    });
+
+    resetLeaderboard.addEventListener('click', () => {
+      localStorage.removeItem('gemGameLeaderboard');
+      renderLeaderboard();
+    });
+
+    addEnemies.addEventListener('click', () => {
+      spawnEnemies();
+    });
+
+    addGems.addEventListener('click', () => {
+      spawnGems();
+    });
+
+    renderLeaderboard();
+    initGame();
+  </script>
+</body>
+</html>
